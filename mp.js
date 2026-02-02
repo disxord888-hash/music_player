@@ -1,7 +1,7 @@
 // Yuki Player Logic
 
 // State
-let queue = []; // Array of { id: string, title: string, author: string }
+let queue = []; // Array of { id: string, title: string, author: string, playCount: number, addedAt: number }
 let currentIndex = -1;
 let selectedListIndex = -1;
 let player = null;
@@ -94,15 +94,8 @@ function extractPlaylistId(url) {
 async function isShort(videoId) {
     return new Promise((resolve) => {
         const img = new Image();
-        // hqdefault usually reflects the aspect ratio of the video
         img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
         img.onload = () => {
-            // Standard video is 480x360 (4:3) or similar.
-            // Shorts are often 360x480 (3:4) or 1080x1920.
-            // If width < height, it's definitely a mobile/short aspect.
-            // Also, some horizontal videos might have hqdefault with black bars, 
-            // but usually 480x360 is the baseline. 
-            // If width <= height, we treat it as short.
             if (img.width <= img.height) {
                 resolve(true);
             } else {
@@ -118,10 +111,18 @@ async function fetchMetadata(videoId) {
         const response = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
         const data = await response.json();
         const shortStatus = await isShort(videoId);
+
+        // Convert "YYYY-MM-DD" or similar to timestamp
+        let publishedAt = 0;
+        if (data.upload_date) {
+            publishedAt = new Date(data.upload_date).getTime();
+        }
+
         return {
             title: data.title || "Unknown Title",
             author: data.author_name || "Unknown Artist",
-            isShort: shortStatus || (data.title && data.title.toLowerCase().includes('#shorts'))
+            isShort: shortStatus || (data.title && data.title.toLowerCase().includes('#shorts')),
+            publishedAt: publishedAt
         };
     } catch (e) {
         return null;
@@ -140,35 +141,34 @@ async function fetchPlaylistItems(playlistId) {
             const json = JSON.parse(match[1]);
             const contents = json.contents?.twoColumnBrowseResultsRenderer?.tabs[0]?.content?.sectionListRenderer?.contents[0]?.itemSectionRenderer?.contents[0]?.playlistVideoListRenderer?.contents;
             if (contents) {
-                const results = [];
-                let skipCount = 0;
-
-                // We process thumbnail checks in parallel for speed
                 const processed = await Promise.all(contents.map(async item => {
                     const videoData = item.playlistVideoRenderer;
                     if (!videoData) return null;
                     const title = videoData.title?.runs[0]?.text || videoData.title?.simpleText || "Unknown Title";
 
-                    if (title.toLowerCase().includes('#shorts')) {
-                        skipCount++;
-                        return null;
-                    }
+                    if (title.toLowerCase().includes('#shorts')) return "SKIP";
 
-                    // Thumbnail check inside playlist
                     const shortStatus = await isShort(videoData.videoId);
-                    if (shortStatus) {
-                        skipCount++;
-                        return null;
-                    }
+                    if (shortStatus) return "SKIP";
 
                     return {
                         id: videoData.videoId,
                         title: title,
-                        author: videoData.shortBylineText?.runs[0]?.text || "Unknown Artist"
+                        author: videoData.shortBylineText?.runs[0]?.text || "Unknown Artist",
+                        playCount: 0,
+                        addedAt: Date.now(),
+                        publishedAt: 0 // Playlist API doesn't always provide full date easily, will fetch on play if needed or leave as 0
                     };
                 }));
 
-                const validItems = processed.filter(i => i);
+                let skipCount = 0;
+                const validItems = processed.filter(i => {
+                    if (i === "SKIP") {
+                        skipCount++;
+                        return false;
+                    }
+                    return i;
+                });
                 return { items: validItems, skipCount: skipCount };
             }
         }
@@ -180,7 +180,7 @@ async function fetchPlaylistItems(playlistId) {
 
 async function addToQueue(urlOrId, title, author) {
     if (queue.length >= MAX_QUEUE) {
-        alert("Queue full (Max 2047)");
+        alert("Queue full (Max 32767)");
         return;
     }
 
@@ -218,7 +218,10 @@ async function addToQueue(urlOrId, title, author) {
     const tempSong = {
         id: id,
         title: finalTitle || "読み込み中...",
-        author: finalAuthor || "..."
+        author: finalAuthor || "...",
+        playCount: 0,
+        addedAt: Date.now(),
+        publishedAt: 0
     };
     queue.push(tempSong);
     const itemIdx = queue.length - 1;
@@ -227,7 +230,6 @@ async function addToQueue(urlOrId, title, author) {
     if (!finalTitle || !finalAuthor) {
         const meta = await fetchMetadata(id);
         if (meta) {
-            // Re-check for shorts in meta title OR aspect ratio
             if (meta.isShort) {
                 queue.splice(itemIdx, 1);
                 renderQueue();
@@ -236,6 +238,7 @@ async function addToQueue(urlOrId, title, author) {
             }
             if (!finalTitle) queue[itemIdx].title = meta.title;
             if (!finalAuthor) queue[itemIdx].author = meta.author;
+            queue[itemIdx].publishedAt = meta.publishedAt;
             renderQueue();
             if (currentIndex === itemIdx) {
                 el.nowTitle.value = queue[itemIdx].title;
@@ -268,20 +271,13 @@ function renderQueue() {
 
         li.onclick = (e) => {
             selectedListIndex = idx;
-            renderQueue(); // Re-render to show selection
-            // We don't play on click, just select for operations like Remove/Copy.
-            // Double click to play?
+            renderQueue();
         };
         li.ondblclick = () => {
             playIndex(idx);
         };
 
         el.queueList.appendChild(li);
-
-        // Auto scroll to active song if playing
-        if (idx === currentIndex && !selectedListIndex) { // Only auto scroll if user hasn't selected something else
-            // li.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
     });
 
     el.queueStatus.innerText = `${queue.length} / ${MAX_QUEUE}`;
@@ -292,23 +288,24 @@ function playIndex(idx) {
     currentIndex = idx;
     const item = queue[idx];
 
+    // Play Count increment
+    item.playCount = (item.playCount || 0) + 1;
+
     if (isPlayerReady) {
         player.loadVideoById(item.id);
     }
 
-    // Update inputs
     el.nowTitle.value = item.title;
     el.nowAuthor.value = item.author;
 
     renderQueue();
-    // Scroll to item
     setTimeout(() => {
         const activeEl = document.querySelector('.queue-item.active');
         if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
 }
 
-// Current Song Editing
+// Editing
 el.nowTitle.addEventListener('input', () => {
     if (currentIndex >= 0 && currentIndex < queue.length) {
         queue[currentIndex].title = el.nowTitle.value;
@@ -331,7 +328,6 @@ function skipNext() {
         playIndex(currentIndex);
         return;
     }
-
     if (isShuffle && queue.length > 1) {
         let next = currentIndex;
         while (next === currentIndex) {
@@ -340,7 +336,6 @@ function skipNext() {
         playIndex(next);
         return;
     }
-
     if (currentIndex < queue.length - 1) {
         playIndex(currentIndex + 1);
     } else {
@@ -352,12 +347,10 @@ function skipPrev() {
     if (currentIndex > 0) {
         playIndex(currentIndex - 1);
     } else {
-        // Restart current?
         if (isPlayerReady) player.seekTo(0);
     }
 }
 
-// Helper
 function safeHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -365,7 +358,6 @@ function safeHtml(str) {
 function removeSelected() {
     if (selectedListIndex >= 0 && selectedListIndex < queue.length) {
         queue.splice(selectedListIndex, 1);
-        // Adjust indices
         if (currentIndex === selectedListIndex) {
             if (queue.length > 0) {
                 if (currentIndex >= queue.length) currentIndex = queue.length - 1;
@@ -384,11 +376,44 @@ function removeSelected() {
 
 // Button Events
 document.getElementById('btn-delete').onclick = removeSelected;
+
+document.getElementById('btn-dedupe').onclick = () => {
+    const seen = new Set();
+    const originalCount = queue.length;
+    const currentId = currentIndex >= 0 ? queue[currentIndex].id : null;
+
+    queue = queue.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+    });
+
+    if (currentId) currentIndex = queue.findIndex(i => i.id === currentId);
+    else currentIndex = -1;
+
+    renderQueue();
+    alert(`${originalCount - queue.length}件の重複を除去しました。`);
+};
+
+document.getElementById('sort-select').onchange = (e) => {
+    const mode = e.target.value;
+    const currentId = currentIndex >= 0 ? queue[currentIndex].id : null;
+
+    if (mode === 'popular') {
+        queue.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
+    } else if (mode === 'recent') {
+        queue.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    } else if (mode === 'published') {
+        queue.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+    }
+
+    if (currentId) currentIndex = queue.findIndex(i => i.id === currentId);
+    renderQueue();
+};
+
 document.getElementById('btn-clear').onclick = () => {
     if (confirm("Queueをすべて削除しますか？")) {
-        queue = [];
-        currentIndex = -1;
-        selectedListIndex = -1;
+        queue = []; currentIndex = -1; selectedListIndex = -1;
         if (isPlayerReady) player.stopVideo();
         renderQueue();
     }
@@ -396,63 +421,40 @@ document.getElementById('btn-clear').onclick = () => {
 
 document.getElementById('btn-add').addEventListener('click', () => {
     addToQueue(el.addUrl.value, el.addTitle.value, el.addAuthor.value);
-    el.addUrl.value = '';
-    el.addTitle.value = '';
-    el.addAuthor.value = '';
+    el.addUrl.value = ''; el.addTitle.value = ''; el.addAuthor.value = '';
 });
 
-// Lock Logic (4s Hold)
+// Lock Logic
 function startLockTimer() {
     lockStartTime = Date.now();
-    el.lockProgress.style.width = '0%';
-    el.lockProgress.style.display = 'block';
-
+    el.lockProgress.style.width = '0%'; el.lockProgress.style.display = 'block';
     if (lockTimer) clearInterval(lockTimer);
     lockTimer = setInterval(() => {
         const elapsed = Date.now() - lockStartTime;
         const progress = Math.min((elapsed / 4000) * 100, 100);
         el.lockProgress.style.width = progress + '%';
-
         if (elapsed >= 4000) {
-            clearInterval(lockTimer);
-            toggleLock();
-            el.lockProgress.style.width = '0%';
-            lockTimer = null;
+            clearInterval(lockTimer); toggleLock();
+            el.lockProgress.style.width = '0%'; lockTimer = null;
         }
     }, 50);
 }
 
 function stopLockTimer() {
-    if (lockTimer) {
-        clearInterval(lockTimer);
-        lockTimer = null;
-    }
-    el.lockProgress.style.width = '0%';
-    el.lockProgress.style.display = 'none';
+    if (lockTimer) { clearInterval(lockTimer); lockTimer = null; }
+    el.lockProgress.style.width = '0%'; el.lockProgress.style.display = 'none';
 }
 
 function toggleLock() {
     isLocked = !isLocked;
-    if (isLocked) {
-        el.lockOverlay.classList.add('active');
-    } else {
-        el.lockOverlay.classList.remove('active');
-    }
+    if (isLocked) el.lockOverlay.classList.add('active');
+    else el.lockOverlay.classList.remove('active');
 }
 
-el.btnLock.onmousedown = startLockTimer;
-el.btnLock.onmouseup = stopLockTimer;
-el.btnLock.onmouseleave = stopLockTimer;
-
-// Mobile support for long press
-el.btnLock.ontouchstart = (e) => { e.preventDefault(); startLockTimer(); };
-el.btnLock.ontouchend = stopLockTimer;
-
-el.lockOverlay.onmousedown = startLockTimer;
-el.lockOverlay.onmouseup = stopLockTimer;
-el.lockOverlay.onmouseleave = stopLockTimer;
-el.lockOverlay.ontouchstart = (e) => { e.preventDefault(); startLockTimer(); };
-el.lockOverlay.ontouchend = stopLockTimer;
+el.btnLock.onmousedown = startLockTimer; el.btnLock.onmouseup = stopLockTimer; el.btnLock.onmouseleave = stopLockTimer;
+el.btnLock.ontouchstart = (e) => { e.preventDefault(); startLockTimer(); }; el.btnLock.ontouchend = stopLockTimer;
+el.lockOverlay.onmousedown = startLockTimer; el.lockOverlay.onmouseup = stopLockTimer; el.lockOverlay.onmouseleave = stopLockTimer;
+el.lockOverlay.ontouchstart = (e) => { e.preventDefault(); startLockTimer(); }; el.lockOverlay.ontouchend = stopLockTimer;
 
 document.getElementById('btn-prev').onclick = () => !isLocked && skipPrev();
 document.getElementById('btn-next').onclick = () => !isLocked && skipNext();
@@ -481,133 +483,64 @@ function toggleShuffle() {
 el.btnLoop.onclick = () => !isLocked && toggleLoop();
 el.btnShuffle.onclick = () => !isLocked && toggleShuffle();
 
-// JSON Export/Import
 document.getElementById('btn-export').onclick = () => {
     const data = JSON.stringify(queue, null, 2);
     const blob = new Blob([data], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'playlist.txt';
-    a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'playlist.txt'; a.click();
 };
 
-document.getElementById('btn-import').onclick = () => {
-    el.fileInput.click();
-};
-
+document.getElementById('btn-import').onclick = () => { el.fileInput.click(); };
 el.fileInput.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
             if (Array.isArray(data)) {
-                queue = data.slice(0, MAX_QUEUE); // limit
-                currentIndex = -1;
-                renderQueue();
+                queue = data.slice(0, MAX_QUEUE); currentIndex = -1; renderQueue();
                 if (queue.length > 0) playIndex(0);
                 alert("Imported " + queue.length + " songs.");
-            } else {
-                alert("Invalid format: Root must be an array.");
-            }
-        } catch (err) {
-            alert("Error parsing file (ensure it is a valid playlist TXT/JSON)");
-        }
+            } else alert("Invalid format.");
+        } catch (err) { alert("Error parsing file."); }
     };
     reader.readAsText(file);
 };
 
-
-// Keyboard Shortcuts
+// Keyboard
 document.addEventListener('keydown', (e) => {
     if (isLocked) return;
-    // Ignore if typing in an input
     const tag = e.target.tagName.toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
-
-    // Mapping
-    // s: back, k: next
-    // f: -2s, h: +2s
-    // g: pause, o: stop
-    // d: first, j: last
-    // [: add selected, ]: remove selected
-    // 0-9 jumps
-
     const code = e.key.toLowerCase();
-
     if (code === 's') skipPrev();
     if (code === 'k') skipNext();
-
-    // Spatial mapping: F (Left) = Back, H (Right) = Forward
-    if (code === 'f') isPlayerReady && player.seekTo(player.getCurrentTime() - 2); // F = -2s
-    if (code === 'h') isPlayerReady && player.seekTo(player.getCurrentTime() + 2); // H = +2s
-
-    if (code === 'g') {
-        if (isPlayerReady) {
-            if (player.getPlayerState() === 1) player.pauseVideo();
-            else player.playVideo();
-        }
-    }
+    if (code === 'f') isPlayerReady && player.seekTo(player.getCurrentTime() - 2);
+    if (code === 'h') isPlayerReady && player.seekTo(player.getCurrentTime() + 2);
+    if (code === 'g') { if (isPlayerReady) { if (player.getPlayerState() === 1) player.pauseVideo(); else player.playVideo(); } }
     if (code === 'o') isPlayerReady && player.stopVideo();
-
     if (code === 'd') playIndex(0);
     if (code === 'j') playIndex(queue.length - 1);
-
     if (code === 'q') toggleLoop();
     if (code === 'w') toggleShuffle();
-
     if (code === '[') {
-        // Add selected song (Duplicate or Add New from input?)
-        // Prompt: "([)で選択中の曲を追加" (Add currently selected song)
-        // If I have a selected list item, I duplicate it.
-        // If nothing selected, maybe add from input?
         if (selectedListIndex >= 0 && selectedListIndex < queue.length) {
             const item = queue[selectedListIndex];
             if (queue.length < MAX_QUEUE) {
-                queue.splice(selectedListIndex + 1, 0, { ...item }); // Duplicate next to it? or end?
-                // Usually "Add" implies end of queue? Or insert?
-                // Let's push to end to be safe.
-                // queue.push({...item});
-                // Or insert after?
-                // Let's insert after selected.
+                queue.splice(selectedListIndex + 1, 0, { ...item, addedAt: Date.now() });
                 renderQueue();
             }
-        } else {
-            // Try add from input
-            document.getElementById('btn-add').click();
-        }
+        } else document.getElementById('btn-add').click();
     }
-
-    if (code === ']') {
-        removeSelected();
-    }
-
-    // Number keys relative jump
-    // (1) -> 5 back
-    // (6) -> 1 forward (Next)
-    // (0) -> 5 forward
-
-    // keys 1..5 -> -5..-1
-    // keys 6..0 -> +1..+5
-    // 0 key usually is '0'
-
-    // Mapping:
-    // 1: -5, 2: -4, 3: -3, 4: -2, 5: -1
-    // 6: +1, 7: +2, 8: +3, 9: +4, 0: +5 (key '0')
-
-    // let's use parseInt
+    if (code === ']') removeSelected();
     if (['1', '2', '3', '4', '5'].includes(e.key)) {
-        const diff = parseInt(e.key) - 6; // 1->-5, 5->-1
+        const diff = parseInt(e.key) - 6;
         const target = currentIndex + diff;
         if (target >= 0) playIndex(target);
     }
-
     if (['6', '7', '8', '9', '0'].includes(e.key)) {
-        let val = parseInt(e.key);
-        if (val === 0) val = 10;
-        const diff = val - 5; // 6->1, 10->5
+        let val = parseInt(e.key); if (val === 0) val = 10;
+        const diff = val - 5;
         const target = currentIndex + diff;
         if (target < queue.length) playIndex(target);
     }

@@ -113,8 +113,8 @@ body {
     border: none;
     border-bottom: 2px solid var(--border);
     color: var(--text-main);
-    font-size: 1rem;
-    padding: 0.6rem 0;
+    font-size: 0.9rem;
+    padding: 0.4rem 0;
     transition: 0.3s;
 }
 
@@ -124,9 +124,9 @@ body {
 }
 
 .info-input.title {
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
 }
 
 /* Controls */
@@ -140,11 +140,11 @@ body {
     background: var(--bg-item);
     border: 1px solid var(--glass-border);
     color: var(--text-main);
-    padding: 0.75rem 0.5rem;
-    border-radius: 12px;
+    padding: 0.5rem 0.4rem;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -165,10 +165,10 @@ body {
 }
 
 .btn small {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: bold;
     opacity: 0.5;
-    margin-top: 2px;
+    margin-top: 1px;
 }
 
 /* Special Button Colors */
@@ -197,10 +197,11 @@ body {
     background: var(--bg-item);
     border: 1px solid var(--glass-border);
     color: var(--text-main);
-    padding: 0.75rem;
-    border-radius: 10px;
+    padding: 0.6rem;
+    border-radius: 8px;
     flex: 1;
     transition: 0.2s;
+    font-size: 0.85rem;
 }
 
 .app-input:focus {
@@ -220,7 +221,7 @@ body {
 }
 
 .queue-header strong {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
@@ -236,7 +237,7 @@ body {
 .queue-item {
     display: flex;
     align-items: center;
-    padding: 1rem 1.5rem;
+    padding: 0.6rem 1rem;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
     transition: all 0.2s;
@@ -248,7 +249,7 @@ body {
 
 .queue-item.active {
     background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), transparent);
-    border-left: 4px solid var(--primary);
+    border-left: 3px solid var(--primary);
 }
 
 .queue-item.selected {
@@ -257,9 +258,10 @@ body {
 }
 
 .q-idx {
-    width: 45px;
+    width: 35px;
     color: var(--text-muted);
     font-weight: 600;
+    font-size: 0.8rem;
     font-family: 'JetBrains Mono', monospace;
 }
 
@@ -267,16 +269,16 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
 }
 
 .q-title {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
 }
 
 .q-author {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
 }
 

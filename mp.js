@@ -69,9 +69,25 @@ function onPlayerStateChange(event) {
 function extractId(url) {
     if (!url) return null;
     if (url.length === 11) return url;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    // Handle Shorts URL first
+    if (url.includes('/shorts/')) {
+        const parts = url.split('/shorts/');
+        if (parts[1]) {
+            const id = parts[1].split(/[?&]/)[0];
+            if (id.length === 11) return "SHORT_DETECTED";
+        }
+    }
+    // Standard YouTube and YouTube Music patterns
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|music\.youtube\.com\/watch\?v=)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
+}
+
+function extractPlaylistId(url) {
+    if (!url) return null;
+    const regExp = /[?&]list=([^#&?]+)/;
+    const match = url.match(regExp);
+    return match ? match[1] : null;
 }
 
 async function fetchMetadata(videoId) {
@@ -87,21 +103,75 @@ async function fetchMetadata(videoId) {
     }
 }
 
+async function fetchPlaylistItems(playlistId) {
+    try {
+        const url = `https://www.youtube.com/playlist?list=${playlistId}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        const html = data.contents;
+        const match = html.match(/var ytInitialData = (\{.*?\});/);
+        if (match) {
+            const json = JSON.parse(match[1]);
+            const contents = json.contents?.twoColumnBrowseResultsRenderer?.tabs[0]?.content?.sectionListRenderer?.contents[0]?.itemSectionRenderer?.contents[0]?.playlistVideoListRenderer?.contents;
+            if (contents) {
+                return contents.map(item => {
+                    const videoData = item.playlistVideoRenderer;
+                    if (!videoData) return null;
+                    const title = videoData.title?.runs[0]?.text || videoData.title?.simpleText || "Unknown Title";
+                    // Simple heuristic: check for #shorts in title
+                    if (title.toLowerCase().includes('#shorts')) return null;
+
+                    return {
+                        id: videoData.videoId,
+                        title: title,
+                        author: videoData.shortBylineText?.runs[0]?.text || "Unknown Artist"
+                    };
+                }).filter(i => i);
+            }
+        }
+    } catch (e) {
+        console.error("Playlist fetch failed", e);
+    }
+    return null;
+}
+
 async function addToQueue(urlOrId, title, author) {
     if (queue.length >= MAX_QUEUE) {
         alert("Queue full (Max 2047)");
         return;
     }
+
+    const playlistId = extractPlaylistId(urlOrId);
+    if (playlistId) {
+        const items = await fetchPlaylistItems(playlistId);
+        if (items && items.length > 0) {
+            for (const item of items) {
+                if (queue.length < MAX_QUEUE) {
+                    queue.push(item);
+                }
+            }
+            renderQueue();
+            if (currentIndex === -1) playIndex(0);
+            return;
+        }
+        // Fallback: If it's a playlist but we couldn't fetch items, 
+        // try to treat the URL as a single video if it has a v= ID.
+    }
+
     const id = extractId(urlOrId);
     if (!id) {
         alert("Invalid URL or ID");
+        return;
+    }
+    if (id === "SHORT_DETECTED") {
+        alert("ショート動画は再生リストに追加できません。");
         return;
     }
 
     let finalTitle = title;
     let finalAuthor = author;
 
-    // Use placeholder while fetching if needed
     const tempSong = {
         id: id,
         title: finalTitle || "読み込み中...",
@@ -114,6 +184,13 @@ async function addToQueue(urlOrId, title, author) {
     if (!finalTitle || !finalAuthor) {
         const meta = await fetchMetadata(id);
         if (meta) {
+            // Re-check for shorts in meta title
+            if (meta.title.toLowerCase().includes('#shorts')) {
+                queue.splice(itemIdx, 1);
+                renderQueue();
+                alert("ショート動画（タイトルに#shortsを含む）を検出したため、除外しました。");
+                return;
+            }
             if (!finalTitle) queue[itemIdx].title = meta.title;
             if (!finalAuthor) queue[itemIdx].author = meta.author;
             renderQueue();
@@ -264,6 +341,15 @@ function removeSelected() {
 
 // Button Events
 document.getElementById('btn-delete').onclick = removeSelected;
+document.getElementById('btn-clear').onclick = () => {
+    if (confirm("Queueをすべて削除しますか？")) {
+        queue = [];
+        currentIndex = -1;
+        selectedListIndex = -1;
+        if (isPlayerReady) player.stopVideo();
+        renderQueue();
+    }
+};
 
 document.getElementById('btn-add').addEventListener('click', () => {
     addToQueue(el.addUrl.value, el.addTitle.value, el.addAuthor.value);

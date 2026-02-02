@@ -14,7 +14,7 @@ let lockStartTime = 0;
 let isLoop = false;
 let isShuffle = false;
 
-const MAX_QUEUE = 2047;
+const MAX_QUEUE = 32767;
 
 // Elements
 const el = {
@@ -90,13 +90,38 @@ function extractPlaylistId(url) {
     return match ? match[1] : null;
 }
 
+// Helper to check if a video might be a short based on thumbnail aspect ratio
+async function isShort(videoId) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        // hqdefault usually reflects the aspect ratio of the video
+        img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+        img.onload = () => {
+            // Standard video is 480x360 (4:3) or similar.
+            // Shorts are often 360x480 (3:4) or 1080x1920.
+            // If width < height, it's definitely a mobile/short aspect.
+            // Also, some horizontal videos might have hqdefault with black bars, 
+            // but usually 480x360 is the baseline. 
+            // If width <= height, we treat it as short.
+            if (img.width <= img.height) {
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+        };
+        img.onerror = () => resolve(false);
+    });
+}
+
 async function fetchMetadata(videoId) {
     try {
         const response = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
         const data = await response.json();
+        const shortStatus = await isShort(videoId);
         return {
             title: data.title || "Unknown Title",
-            author: data.author_name || "Unknown Artist"
+            author: data.author_name || "Unknown Artist",
+            isShort: shortStatus || (data.title && data.title.toLowerCase().includes('#shorts'))
         };
     } catch (e) {
         return null;
@@ -115,19 +140,36 @@ async function fetchPlaylistItems(playlistId) {
             const json = JSON.parse(match[1]);
             const contents = json.contents?.twoColumnBrowseResultsRenderer?.tabs[0]?.content?.sectionListRenderer?.contents[0]?.itemSectionRenderer?.contents[0]?.playlistVideoListRenderer?.contents;
             if (contents) {
-                return contents.map(item => {
+                const results = [];
+                let skipCount = 0;
+
+                // We process thumbnail checks in parallel for speed
+                const processed = await Promise.all(contents.map(async item => {
                     const videoData = item.playlistVideoRenderer;
                     if (!videoData) return null;
                     const title = videoData.title?.runs[0]?.text || videoData.title?.simpleText || "Unknown Title";
-                    // Simple heuristic: check for #shorts in title
-                    if (title.toLowerCase().includes('#shorts')) return null;
+
+                    if (title.toLowerCase().includes('#shorts')) {
+                        skipCount++;
+                        return null;
+                    }
+
+                    // Thumbnail check inside playlist
+                    const shortStatus = await isShort(videoData.videoId);
+                    if (shortStatus) {
+                        skipCount++;
+                        return null;
+                    }
 
                     return {
                         id: videoData.videoId,
                         title: title,
                         author: videoData.shortBylineText?.runs[0]?.text || "Unknown Artist"
                     };
-                }).filter(i => i);
+                }));
+
+                const validItems = processed.filter(i => i);
+                return { items: validItems, skipCount: skipCount };
             }
         }
     } catch (e) {
@@ -144,19 +186,20 @@ async function addToQueue(urlOrId, title, author) {
 
     const playlistId = extractPlaylistId(urlOrId);
     if (playlistId) {
-        const items = await fetchPlaylistItems(playlistId);
-        if (items && items.length > 0) {
-            for (const item of items) {
+        const result = await fetchPlaylistItems(playlistId);
+        if (result && result.items && result.items.length > 0) {
+            for (const item of result.items) {
                 if (queue.length < MAX_QUEUE) {
                     queue.push(item);
                 }
             }
             renderQueue();
             if (currentIndex === -1) playIndex(0);
+            if (result.skipCount > 0) {
+                alert(`${result.skipCount}件が除外されました！（ショート動画または縦長動画）`);
+            }
             return;
         }
-        // Fallback: If it's a playlist but we couldn't fetch items, 
-        // try to treat the URL as a single video if it has a v= ID.
     }
 
     const id = extractId(urlOrId);
@@ -184,11 +227,11 @@ async function addToQueue(urlOrId, title, author) {
     if (!finalTitle || !finalAuthor) {
         const meta = await fetchMetadata(id);
         if (meta) {
-            // Re-check for shorts in meta title
-            if (meta.title.toLowerCase().includes('#shorts')) {
+            // Re-check for shorts in meta title OR aspect ratio
+            if (meta.isShort) {
                 queue.splice(itemIdx, 1);
                 renderQueue();
-                alert("ショート動画（タイトルに#shortsを含む）を検出したため、除外しました。");
+                alert("ショート動画（縦長または#shortsを含む）を検出したため、除外しました。");
                 return;
             }
             if (!finalTitle) queue[itemIdx].title = meta.title;

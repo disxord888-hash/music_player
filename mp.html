@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Player</title>
+    <link rel="stylesheet" href="mp.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Lock Overlay -->
+    <div id="lock-overlay" class="lock-overlay">
+        <div class="lock-icon">🔒</div>
+    </div>
+    <div id="lock-progress" class="lock-progress"></div>
+
+    <div class="app-container vertical-layout">
+        <!-- New Order: 1. Player/Info, 2. Add Song, 3. Queue -->
+
+        <div class="main-content">
+            <!-- 1行目: Player & Info -->
+            <div class="player-container">
+                <div id="player-wrapper" class="video-frame">
+                    <div id="youtube-player"></div>
+                </div>
+
+                <div id="cumulative-time" class="cumulative-overlay">00:00:00</div>
+
+                <!-- プログレスバー・オーバーレイ -->
+                <div class="progress-overlay" id="progress-container">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+
+                <div class="info-group">
+                    <div class="time-display">
+                        <span id="current-time">0:00</span> / <span id="duration">0:00</span>
+                    </div>
+                    <input type="text" id="now-title" class="info-input title" placeholder="Song Title">
+                    <input type="text" id="now-author" class="info-input" placeholder="Artist">
+                    <input type="text" id="now-id" class="info-input" placeholder="Video ID / URL">
+                </div>
+
+                <!-- 1列目: ASDFGOHJKL -->
+                <div class="controls-row all-controls">
+                    <button class="btn" id="btn-first" title="Top">Top<small>A</small></button>
+                    <button class="btn" id="btn-prev" title="Prev">⏮<small>S</small></button>
+                    <button class="btn" id="btn-seek-back10" title="-10s">-10s<small>D</small></button>
+                    <button class="btn" id="btn-seek-back" title="-2s">-2s<small>F</small></button>
+                    <button class="btn" id="btn-pause" title="Play/Pause">▶/||<small>G</small></button>
+                    <button class="btn" id="btn-stop" title="Stop">⏹<small>O</small></button>
+                    <button class="btn" id="btn-seek-fwd" title="+2s">+2s<small>H</small></button>
+                    <button class="btn" id="btn-seek-fwd10" title="+10s">+10s<small>J</small></button>
+                    <button class="btn" id="btn-next" title="Next">⏭<small>K</small></button>
+                    <button class="btn" id="btn-last" title="End">End<small>L</small></button>
+                    <button class="btn" id="btn-loop">Loop<small>Q</small></button>
+                    <button class="btn" id="btn-shuffle">Shuffle<small>W</small></button>
+                    <button class="btn" id="btn-copy-sel" title="Copy Selected">Copy<small>[</small></button>
+                    <button class="btn" id="btn-delete" style="color: var(--accent);">Del<small>]</small></button>
+                </div>
+
+                <!-- 改行して管理系ボタン -->
+                <div class="controls-row io-controls">
+                    <button id="btn-export" class="btn">Export</button>
+                    <button id="btn-import" class="btn">Import</button>
+                    <button id="btn-lock" class="btn lock-btn">🔒Lock</button>
+                </div>
+
+                <!-- 音響設定: 音量調整 -->
+                <div class="audio-effects add-section"
+                    style="padding: 0.75rem; border-top: 1px solid var(--border); margin-top: 1rem;">
+                    <div class="audio-row" style="display: flex; align-items: center; gap: 1rem;">
+                        <label style="font-size: 0.85rem; color: var(--text-muted); min-width: 80px;">🔉 Volume</label>
+                        <input type="range" id="volume-slider" min="0" max="100" step="1" value="100"
+                            style="flex: 1; accent-color: var(--primary);">
+                        <span id="volume-val"
+                            style="font-family: monospace; font-size: 0.85rem; color: var(--primary-light); min-width: 60px;">100%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add New Song (Add to Queueを大きく) -->
+            <div class="add-section">
+                <h3 style="margin:0 0 0.5rem 0;">Add Song</h3>
+                <div class="input-row">
+                    <div style="flex:1; display:flex; flex-direction:column; gap:0.5rem;">
+                        <input type="text" id="add-url" class="app-input" placeholder="YouTube/YT Music Video URL">
+                        <div class="input-row">
+                            <input type="text" id="add-title" class="app-input" placeholder="Song Title">
+                            <input type="text" id="add-author" class="app-input" placeholder="Artist">
+                        </div>
+                    </div>
+                    <button id="btn-add" class="btn primary-btn big-add-btn">Add to Queue<br>([)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue Section -->
+        <div class="right-panel">
+            <div class="queue-header">
+                <div style="display: flex; flex-direction: column;">
+                    <strong>Queue</strong>
+                    <span id="queue-status" style="font-size: 0.7rem; opacity: 0.6;">0 / 32767</span>
+                </div>
+                <div class="header-actions">
+                    <button id="btn-dedupe" class="btn orange-btn small-btn">Dedupe</button>
+                    <button id="btn-clear" class="btn red-btn small-btn">Clear</button>
+                </div>
+            </div>
+            <ul id="queue-list" class="queue-list"></ul>
+            <div class="queue-footer">
+                Drag: Reorder | 📋: Copy | 🗑️: Delete
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for File Import -->
+    <input type="file" id="file-input" style="display: none;" accept=".json,.txt">
+
+    <script src="mp.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+</body>
+
+</html>

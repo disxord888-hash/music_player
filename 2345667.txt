@@ -4,146 +4,194 @@
       "id": "_sDtwUBUJu4",
       "title": "【巡音ルカ生誕祭2026】 インストゥルメンタル・ワールド / CielP feat. 初音ミク, 巡音ルカ",
       "author": "CielP Ch.",
-      "lastTime": 57.61719595803833,
+      "lastTime": 107.56163795040894,
       "duration": 193.167,
-      "tier": "★★★★★★"
-    },
-    {
-      "id": "cF91xil98Mc",
-      "title": "CONNECT:COMMUNE / FLAVOR FOLEY feat. Hatsune Miku",
-      "author": "Hatsune Miku",
-      "lastTime": 14.236402912261964,
-      "duration": 229.261,
-      "tier": "★★"
+      "tier": "💯",
+      "type": "youtube",
+      "memo": ""
     },
     {
       "id": "8S503S-df2U",
       "title": "星物語 / 初音ミク",
       "author": "Cielo",
-      "lastTime": 99.17866002670289,
+      "lastTime": 104.4179948035431,
       "duration": 210.581,
-      "tier": "★★★★★★"
-    },
-    {
-      "id": "MlTQUSFr-gw",
-      "title": "幸福刑 - LonePi feat.初音ミク",
-      "author": "LonePi",
-      "lastTime": 21.668638891281127,
-      "duration": 232.221,
-      "tier": "★★★★★"
-    },
-    {
-      "id": "xOgziI-H5x4",
-      "title": "暮れて、終えば。/ 重音テトSV (If everything were to break, I... / Kasane Teto SV)",
-      "author": "ミ瑞",
-      "lastTime": 154.0402698626709,
-      "duration": 219.421,
-      "tier": "★★★★"
-    },
-    {
-      "id": "7N_VaYMtRNA",
-      "title": "【アルス キヨテル VY2 ピコ KAITO フリモメン がくぽ Yuma】えぶりでいホスト【cover】",
-      "author": "まひるの",
-      "lastTime": 133.3989471449585,
-      "duration": 196.821,
-      "tier": "★★★★★★"
-    },
-    {
-      "id": "JucbynqMPvc",
-      "title": "子供になっちゃえよ／Flower＆重音テトSV",
-      "author": "栗山夕璃",
-      "lastTime": 120.24106898283387,
-      "duration": 169,
-      "tier": "△"
-    },
-    {
-      "id": "U2VZk2T9NDs",
-      "title": "【鏡音レン】ODDS&ENDS / ryo(supercell)【カバー】",
-      "author": "TORA_NT",
-      "lastTime": 5.876337862670899,
-      "duration": 218.041,
-      "tier": "△"
+      "tier": "💯",
+      "type": "youtube",
+      "memo": ""
     },
     {
       "id": "zOsVL0oYpQA",
       "title": "KAT - Lucid Dreamscape ft. Megurine Luka (MIKU EXPO 2026 Song Contest Entry)",
       "author": "KAT",
-      "lastTime": 119.0776988626709,
+      "lastTime": 15.999670020980835,
       "duration": 242.681,
-      "tier": "△"
-    },
-    {
-      "id": "JnjjMcewpJA",
-      "title": "ぶちゅっ。あ… kiss and kiss./SLAVE.V-V-R feat. KAITO",
-      "author": "SLAVE.V-V-R",
-      "lastTime": 51.55739288746643,
-      "duration": 237.121,
-      "tier": "★★★★★★"
-    },
-    {
-      "id": "tNS-g3F8PrE",
-      "title": "In This Beautiful World | Kasane Teto",
-      "author": "MiliSen",
-      "lastTime": 87.10723293515015,
-      "duration": 200.041,
-      "tier": "★★★"
+      "tier": "💯",
+      "type": "youtube",
+      "memo": ""
     },
     {
       "id": "MbA9fJrFW30",
       "title": "IMITATION (Feat. Otomachi Una)",
       "author": "Aegisylvie",
-      "lastTime": 71.35806400190735,
-      "tier": "★★★★★★",
-      "duration": 172.901
+      "lastTime": 105.98874820599366,
+      "tier": "💯",
+      "duration": 172.901,
+      "type": "youtube",
+      "memo": ""
     },
     {
       "id": "lccaBSbyAs8",
       "title": "プシュケー / wotaku feat. KAITO",
       "author": "wotaku",
-      "lastTime": 97.46583699809266,
-      "tier": "★★★★★★",
-      "duration": 209.301
-    },
-    {
-      "id": "NWwupibC-Is",
-      "title": "tony - TELEPHONE feat. Hatsune Miku",
-      "author": "tony",
-      "lastTime": 12.89305813923645,
-      "tier": "★★★★★",
-      "duration": 261.201
-    },
-    {
-      "id": "qdWuhTuOR04",
-      "title": "【COVER】恋のマイアヒ / O-Zone covered by 重音テト 【Synthesizer V AI 】",
-      "author": "さばとP",
-      "lastTime": 16.642032876022338,
-      "tier": "★★★",
-      "duration": 206.801
+      "lastTime": 100.53854598664856,
+      "tier": "💯",
+      "duration": 209.301,
+      "type": "youtube",
+      "memo": ""
     },
     {
       "id": "STBoCK69vVQ",
       "title": "稲葉曇『スポットレイト』Vo. 歌愛ユキ",
       "author": "稲葉曇",
-      "lastTime": 5.102502066757202,
-      "tier": "★★★★★★",
-      "duration": 183.461
-    },
-    {
-      "id": "REeM1cl7PNU",
-      "title": "擬態 / カゼヒキβ・カゼヒキV・鳴花ヒメ",
-      "author": "rinri",
-      "lastTime": 11.19206487602234,
-      "tier": "★★★★★★",
-      "duration": 244.601
+      "lastTime": 10.517672851226807,
+      "tier": "💯",
+      "duration": 183.461,
+      "type": "youtube",
+      "memo": ""
     },
     {
       "id": "0tD2LLxsGKQ",
       "title": "有機酸/ewe「はろう」- Hello feat.初音ミク Lyric Video",
       "author": "Yoh Kamiyama",
-      "lastTime": 62.992786876022336,
-      "tier": "★★★★★★",
-      "duration": 182.541
+      "lastTime": 71.29175085122681,
+      "tier": "💯",
+      "duration": 182.541,
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "https://soundcloud.com/ultralulz/uffebxccyivu",
+      "type": "soundcloud",
+      "title": "MARETU Ft. 【初音ミク】マインドブランド 【オリジナル】 by 小百合",
+      "author": "小百合",
+      "memo": "T1:[0:34.00]|comment:[天真爛漫！？]\nT2:[0:36.10]|comment:[おさかなわかめ/豊作なワカメ☆]\nT3:[0:53.04]|comment:[羊羹参上！？くたばれ雑魚め] ",
+      "tier": "💯",
+      "lastTime": 110.25821799999106,
+      "thumbnail": "https://i1.sndcdn.com/artworks-000211229286-rqj2y2-t500x500.jpg",
+      "duration": 260.751
+    },
+    {
+      "id": "JnjjMcewpJA",
+      "title": "ぶちゅっ。あ… kiss and kiss./SLAVE.V-V-R feat. KAITO",
+      "author": "SLAVE.V-V-R",
+      "lastTime": 57.86363598092651,
+      "duration": 237.121,
+      "tier": "＊＊＊＊＊＊",
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "NWwupibC-Is",
+      "title": "tony - TELEPHONE feat. Hatsune Miku",
+      "author": "tony",
+      "lastTime": 34.9271239923706,
+      "tier": "＊＊＊＊＊＊",
+      "duration": 261.201,
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "REeM1cl7PNU",
+      "title": "擬態 / カゼヒキβ・カゼヒキV・鳴花ヒメ",
+      "author": "rinri",
+      "lastTime": 14.585150959945679,
+      "tier": "＊＊＊＊＊＊",
+      "duration": 244.601,
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "MlTQUSFr-gw",
+      "title": "幸福刑 - LonePi feat.初音ミク",
+      "author": "LonePi",
+      "lastTime": 150.10662697901915,
+      "duration": 232.221,
+      "tier": "＊＊＊＊＊",
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "xOgziI-H5x4",
+      "title": "暮れて、終えば。/ 重音テトSV (If everything were to break, I... / Kasane Teto SV)",
+      "author": "ミ瑞",
+      "lastTime": 158.42695805722045,
+      "duration": 219.421,
+      "tier": "＊＊＊＊＊",
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "U2VZk2T9NDs",
+      "title": "【鏡音レン】ODDS&ENDS / ryo(supercell)【カバー】",
+      "author": "TORA_NT",
+      "lastTime": 20.315128144958496,
+      "duration": 218.041,
+      "tier": "＊＊＊＊＊",
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "JucbynqMPvc",
+      "title": "子供になっちゃえよ／Flower＆重音テトSV",
+      "author": "栗山夕璃",
+      "lastTime": 125.54241487983704,
+      "duration": 169.381,
+      "tier": "＊＊＊＊",
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "qdWuhTuOR04",
+      "title": "【COVER】恋のマイアヒ / O-Zone covered by 重音テト 【Synthesizer V AI 】",
+      "author": "さばとP",
+      "lastTime": 19.887481133514406,
+      "tier": "＊＊＊＊",
+      "duration": 206.801,
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "cF91xil98Mc",
+      "title": "CONNECT:COMMUNE / FLAVOR FOLEY feat. Hatsune Miku",
+      "author": "Hatsune Miku",
+      "lastTime": 22.94182908392334,
+      "duration": 229.261,
+      "tier": "＊＊＊",
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "tNS-g3F8PrE",
+      "title": "In This Beautiful World | Kasane Teto",
+      "author": "MiliSen",
+      "lastTime": 93.89508503623962,
+      "duration": 200.041,
+      "tier": "＊＊",
+      "type": "youtube",
+      "memo": ""
+    },
+    {
+      "id": "7N_VaYMtRNA",
+      "title": "【アルス キヨテル VY2 ピコ KAITO フリモメン がくぽ Yuma】えぶりでいホスト【cover】",
+      "author": "まひるの",
+      "lastTime": 147.09731882070923,
+      "duration": 196.821,
+      "tier": "Fail",
+      "type": "youtube",
+      "memo": ""
     }
   ],
-  "cumulativeSeconds": 3511.5315176743934
+  "cumulativeSeconds": 3910.3154093066782,
+  "clockFormat": "hh:mm:ss.cc"
 }

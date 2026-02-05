@@ -781,6 +781,7 @@ async function addToQueue(uOrId, tIn, aIn, memoIn, tierIn) {
                         it.title = meta.title;
                         it.author = meta.author;
                         it.thumbnail = meta.thumbnail;
+                        it.isShort = false; // Vimeo usually not marked as shorts this way
                         if (currentIndex === qIdx) {
                             el.nowTitle.value = (it.tier && it.tier !== '-') ? `[${it.tier}] ${it.title}` : it.title;
                             el.nowAuthor.value = it.author;
@@ -793,8 +794,24 @@ async function addToQueue(uOrId, tIn, aIn, memoIn, tierIn) {
             getMetaData(cleanId).then(meta => {
                 // Short Video Check
                 if (meta.isShort && !isShortVideoAllowed) {
-                    queue = queue.filter(it => it.id !== cleanId);
+                    // Find exactly which item we just added (the one at idx)
+                    // and remove it specifically if it matches the id
+                    if (queue[idx] && queue[idx].id === cleanId) {
+                        queue.splice(idx, 1);
+                    } else {
+                        // Fallback: search for it if indices shifted
+                        const foundIdx = queue.findIndex(it => it.id === cleanId && it.title === "Loading...");
+                        if (foundIdx !== -1) queue.splice(foundIdx, 1);
+                    }
+
                     renderQueue();
+                    // If it was playing (started at line 816), stop it
+                    if (currentIndex === idx || (currentIndex >= 0 && queue[currentIndex] && queue[currentIndex].id === cleanId)) {
+                        if (isPlayerReady && player && typeof player.stopVideo === 'function') player.stopVideo();
+                        currentIndex = -1;
+                        el.nowTitle.value = ""; el.nowAuthor.value = "";
+                    }
+
                     alert("ショート動画のため除外されました (Esc+Sで許可切替)");
                     return;
                 }
@@ -802,6 +819,7 @@ async function addToQueue(uOrId, tIn, aIn, memoIn, tierIn) {
                     if (it.id === cleanId) {
                         it.title = meta.title;
                         it.author = meta.author;
+                        it.isShort = meta.isShort;
                         if (currentIndex === qIdx) {
                             el.nowTitle.value = (it.tier && it.tier !== '-') ? `[${it.tier}] ${it.title}` : it.title;
                             el.nowAuthor.value = it.author;
@@ -813,7 +831,15 @@ async function addToQueue(uOrId, tIn, aIn, memoIn, tierIn) {
             });
         }
     }
-    if (currentIndex === -1) playIndex(idx);
+    // Only auto-play if it's NOT a potential short we are blocking
+    // Or just let it play and stop it later in the async callback if it's found to be a short
+    if (currentIndex === -1) {
+        // Quick check for /shorts/ in URL to prevent flash of playback
+        const isUrlShorts = (typeof uOrId === 'string' && uOrId.includes('/shorts/'));
+        if (!(isUrlShorts && !isShortVideoAllowed)) {
+            playIndex(idx);
+        }
+    }
 }
 
 function checkTouchDevice() {
@@ -1019,6 +1045,14 @@ function renderItemsActive() {
 
 function playIndex(i) {
     if (i < 0 || i >= queue.length) return;
+
+    // Prevent playing shorts if blocked
+    if (!isShortVideoAllowed && queue[i].isShort) {
+        console.log("Blocking playback of short video:", queue[i].title);
+        alert("ショート動画の再生は制限されています");
+        return;
+    }
+
     currentIndex = i;
     const item = queue[i];
     lastKnownTime = item.lastTime || 0;
@@ -1428,27 +1462,88 @@ function skipNext() {
     }
 
     if (isLoop) return playIndex(currentIndex);
+
     if (isShuffle && queue.length > 1) {
-        let n = currentIndex; while (n === currentIndex) n = Math.floor(Math.random() * queue.length);
+        let n = currentIndex;
+        // Try up to 20 times to find a non-short video if shorts are blocked
+        for (let attempt = 0; attempt < 20; attempt++) {
+            n = Math.floor(Math.random() * queue.length);
+            if (n === currentIndex && queue.length > 1) continue;
+            const item = queue[n];
+            if (isShortVideoAllowed || !item.isShort) break;
+        }
         return playIndex(n);
     }
+
     if (currentIndex < queue.length - 1) {
-        playIndex(currentIndex + 1);
+        let nextIdx = currentIndex + 1;
+        // Skip shorts if blocked
+        if (!isShortVideoAllowed) {
+            while (nextIdx < queue.length && queue[nextIdx].isShort) {
+                nextIdx++;
+            }
+        }
+
+        if (nextIdx < queue.length) {
+            playIndex(nextIdx);
+        } else if (isQueueLoop && queue.length > 0) {
+            // Check from start
+            let loopIdx = 0;
+            while (loopIdx < queue.length && queue[loopIdx].isShort && !isShortVideoAllowed) {
+                loopIdx++;
+            }
+            if (loopIdx < queue.length) playIndex(loopIdx);
+            else stopPlayback();
+        } else {
+            stopPlayback();
+        }
     } else {
         if (isQueueLoop && queue.length > 0) {
-            playIndex(0);
-        } else {
-            if (isPlayerReady && player && typeof player.stopVideo === 'function') {
-                player.stopVideo();
+            let loopIdx = 0;
+            if (!isShortVideoAllowed) {
+                while (loopIdx < queue.length && queue[loopIdx].isShort) {
+                    loopIdx++;
+                }
             }
-            const scContainer = document.getElementById('soundcloud-player');
-            if (scContainer) scContainer.innerHTML = '';
+            if (loopIdx < queue.length) playIndex(loopIdx);
+            else stopPlayback();
+        } else {
+            stopPlayback();
         }
     }
 }
+
+function stopPlayback() {
+    if (isPlayerReady && player && typeof player.stopVideo === 'function') {
+        player.stopVideo();
+    }
+    const scContainer = document.getElementById('soundcloud-player');
+    if (scContainer) scContainer.innerHTML = '';
+    const vimeoContainer = document.getElementById('vimeo-player');
+    if (vimeoContainer) vimeoContainer.innerHTML = '';
+}
 function skipPrev() {
     if (currentIndex > 0) {
-        playIndex(currentIndex - 1);
+        let prevIdx = currentIndex - 1;
+        if (!isShortVideoAllowed) {
+            while (prevIdx >= 0 && queue[prevIdx].isShort) {
+                prevIdx--;
+            }
+        }
+        if (prevIdx >= 0) {
+            playIndex(prevIdx);
+        } else {
+            // Re-seek if no valid previous
+            const item = queue[currentIndex];
+            if (item && item.type === 'soundcloud') {
+                const scContainer = document.getElementById('soundcloud-player');
+                if (scContainer && scContainer.firstElementChild) {
+                    scContainer.firstElementChild.src = scContainer.firstElementChild.src;
+                }
+            } else if (isPlayerReady) {
+                player.seekTo(0);
+            }
+        }
     } else {
         const item = queue[currentIndex];
         if (item && item.type === 'soundcloud') {
@@ -1770,25 +1865,36 @@ const deleteSelection = () => {
     if (indices.length === 0) return;
 
     const isRemovingCurrent = indices.includes(currentIndex);
-    const playingId = (currentIndex >= 0 && !isRemovingCurrent) ? queue[currentIndex].id : null;
 
-    indices.sort((a, b) => b - a); // Descending
+    // Sort indices in descending order to splice without affecting subsequent indices
+    indices.sort((a, b) => b - a);
+
+    // Track how many items BEFORE the current index are being removed
+    let itemsRemovedBefore = 0;
     indices.forEach(idx => {
+        if (idx < currentIndex) {
+            itemsRemovedBefore++;
+        }
         queue.splice(idx, 1);
     });
 
     if (isRemovingCurrent) {
         if (queue.length > 0) {
-            currentIndex = 0;
-            const targetIdx = Math.min(Math.max(...indices) - indices.length + 1, queue.length - 1);
-            playIndex(Math.max(0, targetIdx));
+            // After removing current, we try to stay at the same relative position (the new item that shifted into this slot)
+            // but bound check it.
+            let nextIndex = Math.min(Math.max(...indices) - indices.length + 1, queue.length - 1);
+            if (nextIndex < 0) nextIndex = 0;
+            playIndex(nextIndex);
         } else {
             if (isPlayerReady && player && typeof player.stopVideo === 'function') player.stopVideo();
             currentIndex = -1;
             el.nowTitle.value = ""; el.nowAuthor.value = "";
         }
     } else {
-        currentIndex = playingId ? queue.findIndex(it => it.id === playingId) : -1;
+        // Adjust currentIndex if items before it were removed
+        if (currentIndex >= 0) {
+            currentIndex -= itemsRemovedBefore;
+        }
     }
 
     selectedIndices.clear();
@@ -3217,7 +3323,17 @@ async function loadPresetFile(filename) {
                 renderQueue();
 
                 if (queue.length > 0) {
-                    playIndex(0);
+                    let startIdx = 0;
+                    if (!isShortVideoAllowed) {
+                        while (startIdx < queue.length && queue[startIdx].isShort) startIdx++;
+                    }
+                    if (startIdx < queue.length) {
+                        playIndex(startIdx);
+                    } else {
+                        // All shorts, don't play anything
+                        if (isPlayerReady && player && typeof player.stopVideo === 'function') player.stopVideo();
+                        currentIndex = -1;
+                    }
                 }
             }
         }
@@ -3730,6 +3846,7 @@ if (document.readyState === 'loading') {
 
 // Shorts Toggle Feature
 function toggleShortsAllowed(forceState = null) {
+    const oldState = isShortVideoAllowed;
     if (forceState !== null) {
         isShortVideoAllowed = Boolean(forceState);
     } else {
@@ -3740,12 +3857,33 @@ function toggleShortsAllowed(forceState = null) {
     const toggle = document.getElementById('shorts-toggle');
     if (toggle) toggle.checked = isShortVideoAllowed;
 
+    // If turned OFF, ask if they want to remove existing shorts
+    if (oldState === true && isShortVideoAllowed === false) {
+        const hasShorts = queue.some(it => it.isShort);
+        if (hasShorts && confirm("キュー内のショート動画をすべて削除しますか？")) {
+            const playingId = (currentIndex >= 0) ? queue[currentIndex].id : null;
+            const originalCount = queue.length;
+
+            queue = queue.filter(it => !it.isShort);
+
+            // Re-sync currentIndex
+            if (playingId) {
+                currentIndex = queue.findIndex(it => it.id === playingId);
+            } else {
+                currentIndex = -1;
+            }
+
+            renderQueue();
+            alert(`ショート動画 ${originalCount - queue.length} 件を削除しました`);
+        }
+    }
+
     // Show indicator
     const status = isShortVideoAllowed ? "ALLOWED" : "BLOCKED";
     if (el.heldKeysIndicator) {
-        el.heldKeysIndicator.innerText = `Shorts Check: ${status}`;
+        el.heldKeysIndicator.innerText = `Shorts: ${status}`;
         el.heldKeysIndicator.style.opacity = "1";
-        setTimeout(() => { if (heldKeysMap.size === 0) el.heldKeysIndicator.style.opacity = "0"; }, 1000);
+        setTimeout(() => { if (typeof heldKeysMap !== 'undefined' && heldKeysMap.size === 0) el.heldKeysIndicator.style.opacity = "0"; }, 1000);
     }
 }
 

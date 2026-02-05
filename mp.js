@@ -16,6 +16,7 @@ let currentIndex = -1;
 let selectedListIndex = -1;
 let selectedIndices = new Set();
 let selectionAnchor = -1;
+let alarmConfig = { enabled: false, time: '', target: '', triggered: false };
 let player = null;
 let scWidget = null;
 let vimeoPlayer = null;
@@ -37,6 +38,8 @@ let isSlashPressed = false; // / state for offset seek
 let imageStartTime = 0; // For seeking in images/GIFs
 let heldKeysMap = new Map(); // For keyboard monitor
 let isShortcutDisplayEnabled = false;
+let isShortVideoAllowed = false; // Toggle for allowing #shorts
+let escPrefix = false;
 
 // Helpers
 function safe(str) {
@@ -788,10 +791,11 @@ async function addToQueue(uOrId, tIn, aIn, memoIn, tierIn) {
             });
         } else {
             getMetaData(cleanId).then(meta => {
-                if (meta.isShort) {
+                // Short Video Check
+                if (meta.isShort && !isShortVideoAllowed) {
                     queue = queue.filter(it => it.id !== cleanId);
                     renderQueue();
-                    alert("ショート動画のため除外されました");
+                    alert("ショート動画のため除外されました (Esc+Sで許可切替)");
                     return;
                 }
                 queue.forEach((it, qIdx) => {
@@ -1474,35 +1478,150 @@ if (el.sortMode) {
         // 'manual' doesn't need action - user can drag to reorder
     };
 }
-// Screenshot Feature
-async function takeScreenshot() {
-    const btn = document.getElementById('btn-screenshot');
-    if (!btn) return;
+// Screenshot Share Modal Logic
+async function openScreenshotModal() {
+    const modal = document.getElementById('share-screenshot-modal');
+    if (!modal) return;
+
+    // Get current item
+    let item = null;
+    if (currentIndex >= 0 && queue[currentIndex]) {
+        item = queue[currentIndex];
+    }
+
+    // Elements
+    const sTitle = document.getElementById('share-title');
+    const sAuthor = document.getElementById('share-author');
+    const sTier = document.getElementById('share-tier');
+    const sArt = document.getElementById('share-art');
+    const sBg = document.getElementById('share-bg');
+
+    // Default values
+    let title = "No Title";
+    let author = "No Artist";
+    let tier = "";
+    let artUrl = "https://via.placeholder.com/600x600?text=No+Track";
+
+    if (item) {
+        title = item.title;
+        author = item.author;
+        tier = item.tier;
+
+        if (item.type === 'youtube') {
+            artUrl = `https://i.ytimg.com/vi/${item.id}/maxresdefault.jpg`;
+        } else if (item.thumbnail) {
+            artUrl = item.thumbnail;
+        }
+    }
+
+    // Update Text
+    sTitle.innerText = title;
+    sAuthor.innerText = author;
+
+    // Update Tier
+    sTier.innerText = tier || "";
+    if (tier && TIER_THEMES[tier]) {
+        sTier.style.display = 'block';
+        const theme = TIER_THEMES[tier];
+        sTier.style.background = theme.primary;
+        sTier.style.color = theme.contrast;
+        sTier.style.boxShadow = `0 4px 15px ${theme.primary}66`; // 40% alpha
+
+        // Update bars color
+        const bars = document.querySelectorAll('.sc-bar');
+        bars.forEach(b => {
+            b.style.background = theme.primary;
+            b.style.boxShadow = `0 0 10px ${theme.primary}`;
+        });
+    } else {
+        sTier.style.display = 'none';
+        // Default bars
+        const bars = document.querySelectorAll('.sc-bar');
+        bars.forEach(b => {
+            b.style.background = 'var(--primary)';
+            b.style.boxShadow = '0 0 10px var(--primary)';
+        });
+    }
+
+    // Update Image
+    // Check if maxresdefault exists for YouTube (sometimes 404), fallback to hqdefault
+    if (item && item.type === 'youtube') {
+        const checkImg = new Image();
+        checkImg.src = artUrl;
+        checkImg.onload = () => {
+            if (checkImg.width < 121) { // YouTube returns small 'deleted' placeholder (120x90) if maxres missing
+                const hq = `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`;
+                sArt.src = hq;
+                sBg.src = hq;
+            } else {
+                sArt.src = artUrl;
+                sBg.src = artUrl;
+            }
+        };
+        checkImg.onerror = () => {
+            const hq = `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`;
+            sArt.src = hq;
+            sBg.src = hq;
+        };
+    } else {
+        sArt.src = artUrl;
+        sBg.src = artUrl;
+    }
+
+    modal.classList.add('active');
+}
+
+async function saveShareCardImage() {
+    const card = document.getElementById('share-card');
+    const btn = document.getElementById('btn-save-share-image');
+    if (!card || !btn) return;
+
+    const originalText = btn.innerText;
+    btn.innerText = "生成中... (Processing)";
+    btn.disabled = true;
 
     try {
-        btn.innerText = '⌛';
-        const canvas = await html2canvas(document.body, {
-            backgroundColor: '#0f172a',
+        // Wait for images to load (just in case)
+        await new Promise(r => setTimeout(r, 500));
+
+        const canvas = await html2canvas(card, {
             useCORS: true,
-            scale: 2,
-            ignoreElements: (el) => el.classList && el.classList.contains('help-modal')
+            scale: 3, // High Res
+            backgroundColor: null, // Transparent bg if rounded
+            logging: false
         });
 
         const link = document.createElement('a');
-        link.download = `music-player-screenshot-${new Date().getTime()}.png`;
+        link.download = `YukiPlayer_Share_${new Date().getTime()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
 
-        btn.innerText = '✅';
-        setTimeout(() => btn.innerText = '📸', 2000);
-    } catch (err) {
-        console.error('Screenshot failed:', err);
-        btn.innerText = '❌';
-        setTimeout(() => btn.innerText = '📸', 2000);
+        btn.innerText = "完了 (Done!)";
+    } catch (e) {
+        console.error("Share image gen failed:", e);
+        alert("画像生成に失敗しました: " + e);
+        btn.innerText = "Error";
+    } finally {
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }, 2000);
     }
 }
 
-document.getElementById('btn-screenshot').onclick = takeScreenshot;
+// Bindings
+document.getElementById('btn-screenshot').onclick = openScreenshotModal;
+document.getElementById('btn-save-share-image').onclick = saveShareCardImage;
+
+// 'B' key alias - needs to be updated in handleKeyDown too if it calls takeScreenshot directly
+// Assuming handleKeyDown calls document.getElementById('btn-screenshot').click() or similar logic
+// Let's ensure the global shortcut for 'B' works by checking if it calls .click() on the button.
+// If it calls takeScreenshot() directly, we might need to update that. 
+// But since we are replacing the function definition that was there... wait, I am replacing the lines that DEFINED takeScreenshot.
+// So if any other code calls takeScreenshot(), it will fail because I am removing the function name 'takeScreenshot'.
+// I should aliases 'takeScreenshot' to 'openScreenshotModal' to be safe.
+
+const takeScreenshot = openScreenshotModal; // Alias for backward compatibility if needed
 
 // GitHub Share Link Generator - Modal Version
 let currentShareData = '';
@@ -1876,7 +1995,25 @@ function processImportFile(f) {
                 importedQueue = d.queue;
                 if (!importedFileNames.has(f.name)) {
                     cumulativeSeconds += (d.cumulativeSeconds || 0);
-                    if (d.clockFormat) currentClockFormat = d.clockFormat; // Import時に設定を読み込む
+                    if (d.clockFormat) currentClockFormat = d.clockFormat;
+
+                    // Import Settings
+                    if (d.settings) {
+                        try {
+                            if (typeof d.settings.isLoop === 'boolean') { isLoop = d.settings.isLoop; }
+                            if (typeof d.settings.isQueueLoop === 'boolean') { isQueueLoop = d.settings.isQueueLoop; }
+                            if (typeof d.settings.isShuffle === 'boolean') { isShuffle = d.settings.isShuffle; }
+                            updateUIStates();
+
+                            if (typeof d.settings.isShortVideoAllowed === 'boolean') {
+                                toggleShortsAllowed(d.settings.isShortVideoAllowed);
+                            }
+                            if (typeof d.settings.volume === 'number') {
+                                updateVolume(d.settings.volume);
+                            }
+                        } catch (e) { console.warn("Settings import failed", e); }
+                    }
+
                     importedFileNames.add(f.name);
                     if (el.cumulativeTime) el.cumulativeTime.innerText = formatCumulative(cumulativeSeconds);
                 }
@@ -2034,7 +2171,11 @@ document.getElementById('btn-export').onclick = async () => {
     const exportData = {
         queue: queue,
         cumulativeSeconds: cumulativeSeconds,
-        clockFormat: typeof currentClockFormat !== 'undefined' ? currentClockFormat : '24h'
+        clockFormat: typeof currentClockFormat !== 'undefined' ? currentClockFormat : '24h',
+        settings: {
+            isLoop, isQueueLoop, isShuffle, isShortVideoAllowed,
+            volume: parseInt(el.volumeSlider.value) || 100
+        }
     };
     await exportDataToFile(exportData, ts, format);
 };
@@ -2266,9 +2407,32 @@ function handleShortcutKey(rawK, e = null) {
     if (isLocked) return;
     const k = normalizeZenkaku(rawK);
 
+    if (k === 'Escape') {
+        escPrefix = true;
+        tPrefixCount = 0; yPrefixCount = 0; // Reset others
+        if (el.heldKeysIndicator) {
+            el.heldKeysIndicator.innerText = "Esc";
+            el.heldKeysIndicator.style.opacity = "1";
+        }
+        return;
+    }
+
+    if (escPrefix) {
+        if (k.toLowerCase() === 's') {
+            if (e) e.preventDefault();
+            toggleShortsAllowed();
+            escPrefix = false;
+            return;
+        }
+        escPrefix = false;
+        if (el.heldKeysIndicator) el.heldKeysIndicator.style.opacity = "0";
+    }
+
     const kl = k.toLowerCase();
     if (kl === 'b') { if (e) e.preventDefault(); takeScreenshot(); }
     else if (kl === 'u') { if (e) e.preventDefault(); openUrlImportModal(); }
+    else if (kl === 'i') { if (e) e.preventDefault(); el.fileInput.click(); }
+    else if (k === ' ') { if (e) e.preventDefault(); mediaTogglePlay(); }
     else if (kl === 'g') { if (e) e.preventDefault(); mediaTogglePlay(); }
     else if (kl === 'o') mediaStop();
     else if (kl === 'a') {
@@ -2355,8 +2519,8 @@ function handleShortcutKey(rawK, e = null) {
             renderItemsActive();
         }
     }
-    else if (k === 'arrowup') { if (e) e.preventDefault(); updateVolume(parseInt(el.volumeSlider.value) + 5); }
-    else if (k === 'arrowdown') { if (e) e.preventDefault(); updateVolume(parseInt(el.volumeSlider.value) - 5); }
+    else if (kl === 'arrowup') { if (e) e.preventDefault(); updateVolume(parseInt(el.volumeSlider.value) + 5); }
+    else if (kl === 'arrowdown') { if (e) e.preventDefault(); updateVolume(parseInt(el.volumeSlider.value) - 5); }
     else if (k === ',') {
         const input = prompt(`Time in seconds (e.g. 83.45):`);
         if (input) mediaSeekTo(parseTimeToSeconds(input));
@@ -2419,6 +2583,7 @@ function handleShortcutKey(rawK, e = null) {
         const yKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', '\\', '¥'];
         if (yKeys.includes(k)) {
             if (e) e.preventDefault();
+
             const volMap = {
                 '1': 1, '2': 3, '3': 5, '4': 8, '5': 15, '6': 25,
                 '7': 40, '8': 55, '9': 75, '0': 90, '-': 100
@@ -2429,19 +2594,19 @@ function handleShortcutKey(rawK, e = null) {
             if (volMap[k] !== undefined) {
                 targetVol = volMap[k];
             } else if (k === '^') {
-                targetVol = currentVol - 5;
+                targetVol = Math.max(0, currentVol - 5);
             } else if (k === '\\' || k === '¥') {
-                targetVol = currentVol + 5;
+                targetVol = Math.min(100, currentVol + 5);
             }
-
             updateVolume(targetVol);
 
-            // Show result on indicator briefly
+            // Show volume level
             if (el.heldKeysIndicator) {
-                const prefix = "Y".repeat(yPrefixCount);
-                el.heldKeysIndicator.innerText = `${prefix}${k} (${targetVol}%)`;
+                el.heldKeysIndicator.innerText = "Y".repeat(yPrefixCount) + k + ` (${targetVol}%)`;
+                el.heldKeysIndicator.style.opacity = "1";
                 setTimeout(() => { if (heldKeysMap.size === 0) el.heldKeysIndicator.style.opacity = "0"; }, 500);
             }
+
             yPrefixCount = 0;
             return;
         }
@@ -2495,6 +2660,9 @@ function handleShortcutKey(rawK, e = null) {
     }
     else if (kl === ']') {
         deleteSelection();
+    }
+    else if (kl === 'p') {
+        openAlarmSettings();
     }
     else if (k === ';') {
         if (el.nowMemo) {
@@ -2689,10 +2857,14 @@ document.addEventListener('keydown', (e) => {
     if (isLocked) return;
 
     // Allow shortcuts from document body OR the designated shortcut input
-    const isInput = (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
-    const isShortcutInput = (e.target.id === 'shortcut-input');
+    const target = e.target;
+    // const isInput = (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+    const isTextLikeInput = (target.tagName === 'TEXTAREA' ||
+        (target.tagName === 'INPUT' && ['text', 'number', 'password', 'search', 'url', 'email', 'tel'].includes(target.type)));
 
-    if (isInput && !isShortcutInput) return;
+    const isShortcutInput = (target.id === 'shortcut-input');
+
+    if (isTextLikeInput && !isShortcutInput) return;
 
     if (isShortcutInput && e.key === 'Enter') {
         const val = e.target.value;
@@ -2702,7 +2874,7 @@ document.addEventListener('keydown', (e) => {
     }
 
     // Normal shortcut handling (one-key)
-    if (!isInput || isShortcutInput) {
+    if (!isTextLikeInput || isShortcutInput) {
         handleShortcutKey(e.key, e); // Pass original key case
         if (isShortcutInput) e.target.value = '';
     }
@@ -3539,3 +3711,146 @@ if (document.readyState === 'loading') {
 } else {
     setTimeout(initFromUrlParams, 100);
 }
+
+
+// Shorts Toggle Feature
+function toggleShortsAllowed(forceState = null) {
+    if (forceState !== null) {
+        isShortVideoAllowed = Boolean(forceState);
+    } else {
+        isShortVideoAllowed = !isShortVideoAllowed;
+    }
+
+    // Update UI
+    const toggle = document.getElementById('shorts-toggle');
+    if (toggle) toggle.checked = isShortVideoAllowed;
+
+    // Show indicator
+    const status = isShortVideoAllowed ? "ALLOWED" : "BLOCKED";
+    if (el.heldKeysIndicator) {
+        el.heldKeysIndicator.innerText = `Shorts Check: ${status}`;
+        el.heldKeysIndicator.style.opacity = "1";
+        setTimeout(() => { if (heldKeysMap.size === 0) el.heldKeysIndicator.style.opacity = "0"; }, 1000);
+    }
+}
+
+const shortsToggleListener = document.getElementById('shorts-toggle');
+if (shortsToggleListener) {
+    shortsToggleListener.addEventListener('change', (e) => toggleShortsAllowed(e.target.checked));
+}
+
+// Alarm Logic
+function openAlarmSettings() {
+    const modal = document.getElementById('alarm-modal');
+    if (!modal) return;
+
+    // Restore current config to UI
+    document.getElementById('alarm-time').value = alarmConfig.time;
+    document.getElementById('alarm-target').value = alarmConfig.target;
+    updateAlarmStatusUI();
+
+    modal.classList.add('active');
+    document.getElementById('alarm-time').focus();
+}
+
+function updateAlarmStatusUI() {
+    const statusEl = document.getElementById('alarm-status');
+    if (!statusEl) return;
+    if (alarmConfig.enabled) {
+        statusEl.innerText = `ON (${alarmConfig.time})`;
+        statusEl.style.color = 'var(--primary)';
+    } else {
+        statusEl.innerText = 'OFF';
+        statusEl.style.color = 'var(--text-muted)';
+    }
+}
+
+document.getElementById('btn-alarm-set').onclick = () => {
+    const t = document.getElementById('alarm-time').value;
+    const tgt = document.getElementById('alarm-target').value;
+
+    if (!t) {
+        alert("時刻を設定してください");
+        return;
+    }
+
+    alarmConfig = {
+        enabled: true,
+        time: t,
+        target: tgt,
+        triggered: false
+    };
+    updateAlarmStatusUI();
+    document.getElementById('alarm-modal').classList.remove('active');
+
+    // Feedback
+    if (el.heldKeysIndicator) {
+        el.heldKeysIndicator.innerText = `Alarm Set: ${t}`;
+        el.heldKeysIndicator.style.opacity = "1";
+        setTimeout(() => { if (heldKeysMap.size === 0) el.heldKeysIndicator.style.opacity = "0"; }, 2000);
+    }
+};
+
+document.getElementById('btn-alarm-clear').onclick = () => {
+    alarmConfig.enabled = false;
+    updateAlarmStatusUI();
+    document.getElementById('alarm-time').value = '';
+    document.getElementById('alarm-target').value = '';
+};
+
+// Check Alarm Loop (Run every second)
+setInterval(() => {
+    if (!alarmConfig.enabled || alarmConfig.triggered) return;
+
+    const now = new Date();
+    // Format HH:mm
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const nowTime = `${h}:${m}`;
+
+    if (nowTime === alarmConfig.time) {
+        triggerAlarm();
+    }
+}, 1000);
+
+async function triggerAlarm() {
+    alarmConfig.triggered = true; // Prevent multiple triggers in same minute
+    // Auto disable after trigger? or Keep for daily?
+    // Let's keep it daily for now, but mark triggered for this minute.
+    // To support daily, we need to reset triggered flag when time changes.
+    // Simplified: Disable after firing once unless we add Repeat option.
+    alarmConfig.enabled = false;
+
+    console.log("ALARM TRIGGERED!");
+
+    const tgt = alarmConfig.target.trim();
+    if (!tgt) {
+        // Just play current if no target
+        mediaPlay();
+        return;
+    }
+
+    // Check if numeric (Queue Index)
+    if (/^\d+$/.test(tgt)) {
+        const idx = parseInt(tgt, 10) - 1; // 1-based to 0-based
+        if (idx >= 0 && idx < queue.length) {
+            playIndex(idx);
+        } else {
+            console.warn("Alarm: Invalid queue index");
+            mediaPlay(); // Fallback
+        }
+    } else {
+        // Assume URL
+        try {
+            await addNewSong(tgt); // This adds to queue
+            // Play the last added song
+            playIndex(queue.length - 1);
+        } catch (e) {
+            console.error("Alarm: URL import failed", e);
+            mediaPlay(); // Fallback
+        }
+    }
+}
+
+// Reset trigger flag when minute changes (if we wanted repeating alarm)
+// For now, it disables itself, so no need.

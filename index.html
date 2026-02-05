@@ -62,13 +62,28 @@
 
     <!-- Help Button / Modal -->
     <!-- Top Right Controls -->
-    <div class="top-right-group">
-        <input type="text" id="shortcut-input" class="shortcut-input" placeholder="Cmd→" maxlength="1">
-        <button id="btn-share-link" class="help-btn" title="Share via GitHub Link"
-            style="color: #3b82f6; border-color: #3b82f6;">🔗</button>
-        <button id="btn-screenshot" class="help-btn" title="Take Screenshot"
-            style="color: #4ade80; border-color: #4ade80;">📸</button>
-        <button id="help-btn" class="help-btn" title="Shortcuts">▼</button>
+    <div class="top-right-area">
+        <div class="top-right-group">
+            <input type="text" id="shortcut-input" class="shortcut-input" placeholder="Cmd→" maxlength="1">
+            <button id="btn-share-link" class="help-btn" title="Share via GitHub Link"
+                style="color: #3b82f6; border-color: #3b82f6;">🔗</button>
+            <button id="btn-screenshot" class="help-btn" title="Take Screenshot"
+                style="color: #4ade80; border-color: #4ade80;">📸</button>
+            <button id="help-btn" class="help-btn" title="Shortcuts">▼</button>
+        </div>
+        <!-- Shorts Toggle Switch (Row 2) -->
+        <div class="shorts-toggle-container">
+            <label class="switch">
+                <input type="checkbox" id="shorts-toggle">
+                <span class="slider round"></span>
+            </label>
+            <span class="shorts-label">Shorts</span>
+        </div>
+    </div>
+
+    <!-- Held Keys Indicator (Bottom Left) -->
+    <div id="held-keys-indicator"
+        style="position: fixed; bottom: 15px; left: 15px; z-index: 5000; font-family: monospace; font-size: 36pt; color: #fff; background: transparent; pointer-events: none; transition: opacity 0.2s; opacity: 0; text-shadow: 2px 2px 4px #000;">
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -91,6 +106,8 @@
                 <li><span>[ / ]</span> 選択項目を 複製 / 削除</li>
                 <li><span>B</span> 画面保存 (📸)</li>
                 <li><span>U</span> URLインポート (🔗)</li>
+                <li><span>I</span> ファイルインポート (📂)</li>
+                <li><span>P</span> アラーム設定 (⏰)</li>
                 <li><span>↑ / ↓</span> 音量調整 (±5%)</li>
             </ul>
             <div
@@ -102,6 +119,41 @@
                 / 併用で+2.7%(+1/36)、\ 併用で+5.5%(+2/36) オフセット
             </div>
             <button onclick="document.getElementById('help-modal').classList.remove('active')" class="btn">閉じる</button>
+        </div>
+    </div>
+
+    <!-- Alarm Modal -->
+    <div id="alarm-modal" class="help-modal">
+        <div class="help-content" style="max-width: 400px;">
+            <h3 style="margin-top:0;">⏰ Alarm Settings</h3>
+            <div style="display:flex; flex-direction:column; gap:15px; margin: 20px 0;">
+                <div>
+                    <label
+                        style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:4px;">Time</label>
+                    <input type="time" id="alarm-time" class="app-input" style="width: 100%; font-size: 1.2rem;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:4px;">Target
+                        (キュー番号 or URL)</label>
+                    <input type="text" id="alarm-target" class="app-input" placeholder="例: 1, https://youtu.be/..."
+                        style="width: 100%;">
+                    <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">※ 数値のみ: キュー番号(1〜) / 文字列:
+                        URLとして追加再生</div>
+                </div>
+
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
+                    <span style="font-size:0.9rem;">Status:</span>
+                    <span id="alarm-status" style="font-weight:bold; color:var(--text-muted);">OFF</span>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button id="btn-alarm-clear" class="btn red-btn">Clear</button>
+                <button id="btn-alarm-set" class="btn primary-btn">Set Alarm</button>
+            </div>
+            <button onclick="document.getElementById('alarm-modal').classList.remove('active')" class="btn"
+                style="margin-top: 10px; width: 100%;">閉じる</button>
         </div>
     </div>
 
@@ -154,11 +206,6 @@
         </div>
     </div>
 
-    <!-- Held Keys Indicator (Bottom Left) -->
-    <div id="held-keys-indicator"
-        style="position: fixed; bottom: 15px; left: 15px; z-index: 5000; font-family: monospace; font-size: 36pt; color: #fff; background: transparent; pointer-events: none; transition: opacity 0.2s; opacity: 0; text-shadow: 2px 2px 4px #000;">
-    </div>
-
     <!-- Lock Overlay -->
     <div id="lock-overlay" class="lock-overlay">
         <div class="lock-visual-container">
@@ -167,6 +214,49 @@
                 <circle id="lock-progress-circle" class="lock-fg-circle" cx="40" cy="40" r="35" />
             </svg>
             <div class="lock-icon">🔒</div>
+        </div>
+    </div>
+
+    <!-- Screenshot Share Modal -->
+    <div id="share-screenshot-modal" class="help-modal">
+        <div class="help-content"
+            style="max-width: 600px; display: flex; flex-direction: column; align-items: center; gap: 20px; background: transparent; box-shadow: none; border: none;">
+
+            <!-- Capture Target -->
+            <div id="share-card" class="share-card">
+                <img id="share-bg" class="share-card-bg" src="" alt="" crossorigin="anonymous">
+                <div class="share-card-content">
+                    <div class="share-art-container">
+                        <img id="share-art" src="" alt="Album Art" crossorigin="anonymous">
+                    </div>
+                    <div class="share-info">
+                        <div class="share-title-row">
+                            <span id="share-tier" class="share-tier"></span>
+                            <div id="share-title" class="share-title">Song Title</div>
+                        </div>
+                        <div id="share-author" class="share-author">Artist Name</div>
+                    </div>
+                    <div class="share-footer">
+                        <span class="share-brand">yukic music</span>
+                        <div class="share-code">
+                            <div class="sc-bar"></div>
+                            <div class="sc-bar"></div>
+                            <div class="sc-bar"></div>
+                            <div class="sc-bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                <button onclick="document.getElementById('share-screenshot-modal').classList.remove('active')"
+                    class="btn" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);">閉じる</button>
+                <button id="btn-save-share-image" class="btn primary-btn"
+                    style="padding: 10px 30px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    画像保存 (Save)
+                </button>
+            </div>
+            <p style="color: rgba(255,255,255,0.6); font-size: 0.8rem;">※ 画像生成には数秒かかる場合があります</p>
         </div>
     </div>
 

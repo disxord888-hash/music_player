@@ -98,11 +98,19 @@ body {
 }
 
 /* Help UI & Shortcut Input */
-.top-right-group {
+/* Top Right Area Wrapper */
+.top-right-area {
     position: fixed;
-    top: 10px;
-    right: 10px;
+    top: 5px;
+    right: 5px;
     z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+}
+
+.top-right-group {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -544,9 +552,12 @@ input {
 
 .mini-progress-bar {
     height: 100%;
-    background: var(--primary-light);
+    background: var(--primary);
     width: 0%;
-    box-shadow: 0 0 8px var(--primary-light);
+    position: relative;
+    box-shadow: 0 0 10px var(--primary);
+    transition: width 0.2s linear;
+    /* Smooth movement */
 }
 
 .queue-item.active .mini-progress-bar {
@@ -618,6 +629,28 @@ input {
     visibility: visible;
     pointer-events: auto;
     /* ドラッグ中だけ捕まえる */
+}
+
+/* Progress Bar */
+.progress-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    z-index: 100;
+    cursor: pointer;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--primary);
+    width: 0%;
+    position: relative;
+    box-shadow: 0 0 10px var(--primary);
+    transition: width 0.2s linear;
+    /* Smooth movement */
 }
 
 /* Lock Overlay */
@@ -773,16 +806,84 @@ input {
 /* Tier Label in Queue Title */
 .q-tier-label {
     color: var(--primary);
-    background: rgba(139, 92, 246, 0.1);
-    border: 1px solid var(--primary);
-    padding: 0px 3px;
-    border-radius: 4px;
-    font-size: 0.75rem;
     font-weight: bold;
-    display: inline-block;
-    margin-right: 4px;
-    vertical-align: middle;
 }
+
+/* Shorts Toggle Switch */
+/* Shorts Toggle Switch */
+.shorts-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    backdrop-filter: blur(4px);
+    /* No fixed positioning here anymore */
+}
+
+.shorts-toggle-container:hover {
+    opacity: 1;
+}
+
+.shorts-label {
+    font-size: 0.8rem;
+    color: var(--text-main);
+    font-weight: bold;
+    user-select: none;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg-item);
+    transition: .4s;
+    border-radius: 34px;
+    border: 1px solid var(--border);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+input:checked+.slider:before {
+    transform: translateX(16px);
+}
+
+
 
 /* Tier colors based on tier value */
 .tier-inline-select option[value="★★★★★★"],
@@ -1107,5 +1208,216 @@ input {
         left: 10px;
         transform: scale(0.85);
         transform-origin: top left;
+    }
+}
+
+/* Share Card Styles */
+.share-card {
+    position: relative;
+    width: 400px;
+    height: 600px;
+    /* Restored Compact Height */
+    background: #0f172a;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.share-card-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Important for img tag */
+    filter: blur(30px) brightness(0.6);
+    transform: scale(1.2);
+    /* Slight scale to hide blur edges */
+    z-index: 0;
+    opacity: 0.6;
+}
+
+.share-card-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 30px;
+    height: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 100%);
+}
+
+.share-art-container {
+    width: 260px;
+    height: 260px;
+    aspect-ratio: 1/1;
+    /* 1:1 Square */
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    margin-top: 30px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: #000;
+    flex-shrink: 0;
+}
+
+.share-art-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Crops center of 16:9 thumbnail to fit 1:1 */
+}
+
+.share-info {
+    text-align: center;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.share-title-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    flex-wrap: wrap;
+    margin-bottom: 5px;
+}
+
+.share-tier {
+    font-size: 1rem;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--primary);
+    color: var(--on-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.share-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.3;
+    max-height: 4.8rem;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    padding: 0 10px;
+    letter-spacing: -0.02em;
+}
+
+.share-author {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+.share-footer {
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    padding-top: 20px;
+    padding-bottom: 5px;
+}
+
+.share-brand {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.share-code {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    height: 24px;
+}
+
+.sc-bar {
+    width: 5px;
+    background: var(--primary);
+    border-radius: 2px;
+    animation: barAnim 1s ease-in-out infinite alternate;
+    box-shadow: 0 0 10px var(--primary);
+}
+
+.sc-bar:nth-child(1) {
+    height: 60%;
+    animation-delay: 0s;
+}
+
+.sc-bar:nth-child(2) {
+    height: 100%;
+    animation-delay: 0.15s;
+}
+
+.sc-bar:nth-child(3) {
+    height: 80%;
+    animation-delay: 0.3s;
+}
+
+.sc-bar:nth-child(4) {
+    height: 50%;
+    animation-delay: 0.45s;
+}
+
+@keyframes barAnim {
+    0% {
+        transform: scaleY(0.4);
+        opacity: 0.7;
+    }
+
+    100% {
+        transform: scaleY(1);
+        opacity: 1;
+    }
+}
+
+/* Mobile check */
+@media (max-width: 480px) {
+    .share-card {
+        width: 300px;
+        height: 480px;
+    }
+
+    .share-art-container {
+        width: 200px;
+        height: 200px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    .share-title {
+        font-size: 1.3rem;
+    }
+
+    .share-card-content {
+        padding: 20px;
     }
 }
